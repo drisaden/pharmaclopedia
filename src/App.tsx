@@ -43,8 +43,62 @@ const primaryLinks = [
 const formatList = (list: string[] | undefined, fallback = 'Information not available in this profile.') =>
   list && list.length ? list.join(', ') : fallback
 
+type RoleKey = 'student' | 'pharmacist' | 'patient'
+
+type RoleDashboard = {
+  title: string
+  badge: string
+  summary: string
+  features: string[]
+  quickActions: { label: string; to: string }[]
+}
+
+const roleDashboards: Record<RoleKey, RoleDashboard> = {
+  student: {
+    title: 'Student',
+    badge: 'Revision mode',
+    summary: 'Build recall through simplified learning, quizzes, medicine comparisons, and structured study paths.',
+    features: ['Exam-style revision tracks', 'Mechanism-first teaching summaries', 'Confidence scoring and quick recall prompts'],
+    quickActions: [
+      { label: 'Browse medicines', to: '/search?q=amoxicillin' },
+      { label: 'Revision quiz', to: '/medicine/amoxicillin/quiz' },
+      { label: 'Compare drugs', to: '/compare?left=amoxicillin&right=metformin' },
+    ],
+  },
+  pharmacist: {
+    title: 'Pharmacist',
+    badge: 'Clinical reference mode',
+    summary: 'Use guided product summaries, safety checks, and therapeutic comparisons for counselling and review support.',
+    features: ['Therapeutic comparison panels', 'Counselling and safety reminders', 'Drug class and profile navigation'],
+    quickActions: [
+      { label: 'Open compare view', to: '/compare?left=amoxicillin&right=metformin' },
+      { label: 'Review safety notes', to: '/medicine/amoxicillin#safety' },
+      { label: 'Teaching guide', to: '/medicine/amoxicillin/teach' },
+    ],
+  },
+  patient: {
+    title: 'Patient / caregiver',
+    badge: 'Plain-language mode',
+    summary: 'Understand what a medicine does, when it is used, and what safety details matter most in plain language.',
+    features: ['Clear dosing and administration notes', 'Safety and warning highlights', 'Comfort-first learning explanations'],
+    quickActions: [
+      { label: 'Explore paracetamol', to: '/medicine/paracetamol' },
+      { label: 'Read safety notes', to: '/medicine/paracetamol#safety' },
+      { label: 'Learn about uses', to: '/medicine/paracetamol#uses' },
+    ],
+  },
+}
+
 function App() {
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [selectedRole, setSelectedRole] = useState<RoleKey>('student')
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  const handleRoleSelect = (role: RoleKey) => {
+    setSelectedRole(role)
+    setIsAuthenticated(true)
+    setShowAuthModal(false)
+  }
 
   return (
     <BrowserRouter>
@@ -58,13 +112,22 @@ function App() {
             <Route path="/medicine/:id/teach" element={<TeachPage />} />
             <Route path="/medicine/:id/quiz" element={<QuizPage />} />
             <Route path="/compare" element={<ComparePage />} />
-            <Route path="/account" element={<AccountPage />} />
+            <Route path="/account" element={<AccountPage selectedRole={selectedRole} onSelectRole={setSelectedRole} isAuthenticated={isAuthenticated} />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>
         <Footer />
-        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onRoleSelect={handleRoleSelect}
+          onGuestContinue={() => {
+            setIsAuthenticated(false)
+            setSelectedRole('student')
+            setShowAuthModal(false)
+          }}
+        />
       </div>
     </BrowserRouter>
   )
@@ -129,7 +192,7 @@ function Header({ onOpenAuth }: { onOpenAuth: () => void }) {
               className="inline-flex items-center gap-2 rounded-full bg-[#007979] px-3.5 py-2 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(0,121,121,0.25)] transition hover:-translate-y-0.5 hover:bg-[#005d5d]"
             >
               <UserRound size={16} />
-              <span className="hidden sm:inline">Guest access</span>
+              <span className="hidden sm:inline">Sign in</span>
             </button>
           </div>
         </div>
@@ -156,12 +219,32 @@ function Header({ onOpenAuth }: { onOpenAuth: () => void }) {
   )
 }
 
-function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+function AuthModal({
+  isOpen,
+  onClose,
+  onRoleSelect,
+  onGuestContinue,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  onRoleSelect: (role: RoleKey) => void
+  onGuestContinue: () => void
+}) {
+  const [mode, setMode] = useState<'choice' | 'signin' | 'signup'>('choice')
+  const [role, setRole] = useState<RoleKey>('student')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    onRoleSelect(role)
+  }
+
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-[28px] border border-white/60 bg-white/85 p-6 shadow-[0_26px_80px_rgba(15,23,42,0.22)] backdrop-blur-xl">
+      <div className="w-full max-w-lg rounded-[28px] border border-white/60 bg-white/90 p-6 shadow-[0_26px_80px_rgba(15,23,42,0.22)] backdrop-blur-xl">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#007979]">Welcome</p>
@@ -172,22 +255,93 @@ function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
           </button>
         </div>
 
-        <div className="mt-6 space-y-3">
-          <button type="button" onClick={onClose} className="primary-button flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white">
-            <Sparkles size={16} />
-            Continue as guest
-          </button>
-          <button type="button" onClick={onClose} className="secondary-button flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800">
-            <LogIn size={16} />
-            Sign in
-          </button>
-          <button type="button" onClick={onClose} className="secondary-button flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800">
-            <UserRound size={16} />
-            Create account
-          </button>
-        </div>
+        {mode === 'choice' && (
+          <>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              {(['student', 'pharmacist', 'patient'] as RoleKey[]).map((roleKey) => (
+                <button
+                  key={roleKey}
+                  type="button"
+                  onClick={() => {
+                    setRole(roleKey)
+                    setMode('signin')
+                  }}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:-translate-y-0.5 hover:border-[#007979]/40 hover:bg-[#f4fbfb]"
+                >
+                  <div className="text-sm font-semibold text-slate-900">{roleDashboards[roleKey].title}</div>
+                  <div className="mt-1 text-[11px] text-slate-500">{roleDashboards[roleKey].badge}</div>
+                </button>
+              ))}
+            </div>
 
-        <p className="mt-5 text-center text-xs text-slate-500">
+            <div className="mt-6 space-y-3">
+              <button type="button" onClick={onGuestContinue} className="primary-button flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white">
+                <Sparkles size={16} />
+                Continue as guest
+              </button>
+              <button type="button" onClick={() => setMode('signin')} className="secondary-button flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800">
+                <LogIn size={16} />
+                Sign in
+              </button>
+              <button type="button" onClick={() => setMode('signup')} className="secondary-button flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800">
+                <UserRound size={16} />
+                Create account
+              </button>
+            </div>
+          </>
+        )}
+
+        {(mode === 'signin' || mode === 'signup') && (
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Select role</label>
+              <select
+                value={role}
+                onChange={(event) => setRole(event.target.value as RoleKey)}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-800 outline-none focus:border-[#007979]/40"
+              >
+                <option value="student">Student</option>
+                <option value="pharmacist">Pharmacist</option>
+                <option value="patient">Patient / caregiver</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-800 outline-none focus:border-[#007979]/40"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Enter password"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-800 outline-none focus:border-[#007979]/40"
+                required
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <button type="button" onClick={() => setMode('choice')} className="text-sm font-medium text-slate-600 hover:text-slate-900">
+                Back
+              </button>
+              <button type="submit" className="primary-button rounded-2xl px-4 py-3 text-sm font-semibold text-white">
+                {mode === 'signin' ? 'Sign in to dashboard' : 'Create account'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        <p className="mt-6 text-center text-xs text-slate-500">
           Guest access remains available by default, and accounts are optional for learning and revision.
         </p>
       </div>
@@ -923,62 +1077,101 @@ function QuizPage() {
   )
 }
 
-function AccountPage() {
-  const roles = [
-    {
-      title: 'Student',
-      description: 'Study core pharmacology, compare medicines, and freeze key revision points for exams.',
-      cta: 'Start learning',
-      to: '/search?q=amoxicillin',
-    },
-    {
-      title: 'Pharmacist',
-      description: 'Review product information, compare therapeutic classes, and reinforce patient counselling points.',
-      cta: 'Open resource hub',
-      to: '/compare?left=amoxicillin&right=metformin',
-    },
-    {
-      title: 'Patient / caregiver',
-      description: 'Understand what a medicine is, how it works, and which safety information matters most.',
-      cta: 'Explore medicine info',
-      to: '/medicine/paracetamol',
-    },
-  ]
+function AccountPage({
+  selectedRole,
+  onSelectRole,
+  isAuthenticated,
+}: {
+  selectedRole: RoleKey
+  onSelectRole: (role: RoleKey) => void
+  isAuthenticated: boolean
+}) {
+  const activeRole = selectedRole
+  const dashboard = roleDashboards[activeRole]
 
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Account</p>
-        <h1 className="mt-2 text-3xl font-bold text-slate-900">Choose your learning journey</h1>
-        <p className="mt-4 max-w-3xl text-slate-700">
-          The product is designed to work without sign-up, but role-based entry points make it easier for students, pharmacists, and patients to start with the right learning flow.
-        </p>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{isAuthenticated ? 'Signed in dashboard' : 'Guest access'}</p>
+            <h1 className="mt-2 text-3xl font-bold text-slate-900">{dashboard.title} workspace</h1>
+            <p className="mt-3 max-w-3xl text-slate-700">{dashboard.summary}</p>
+          </div>
+          <div className="rounded-full border border-[#007979]/15 bg-[#eefdfd] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-[#007979]">
+            {dashboard.badge}
+          </div>
+        </div>
       </section>
 
-      <section className="grid gap-6 md:grid-cols-3">
-        {roles.map(({ title, description, cta, to }) => (
-          <div key={title} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white">
-              <UserRound size={20} />
+      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap gap-2">
+          {(['student', 'pharmacist', 'patient'] as RoleKey[]).map((roleKey) => (
+            <button
+              key={roleKey}
+              type="button"
+              onClick={() => onSelectRole(roleKey)}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${activeRole === roleKey ? 'bg-[#007979] text-white shadow-[0_12px_24px_rgba(0,121,121,0.18)]' : 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`}
+            >
+              {roleDashboards[roleKey].title}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-slate-900">Key features</h2>
+            <ul className="mt-4 space-y-3">
+              {dashboard.features.map((feature) => (
+                <li key={feature} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                  <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#007979]" />
+                  <span>{feature}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-slate-900">Quick actions</h2>
+            <div className="mt-4 flex flex-wrap gap-3">
+              {dashboard.quickActions.map(({ label, to }) => (
+                <Link key={label} to={to} className="rounded-full border border-[#007979]/20 bg-[#f3fbfb] px-4 py-2 text-sm font-semibold text-[#007979] transition hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(0,121,121,0.08)]">
+                  {label}
+                </Link>
+              ))}
             </div>
-            <h2 className="mt-4 text-xl font-semibold text-slate-900">{title}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-700">{description}</p>
-            <Link to={to} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
-              {cta} <ArrowRight size={16} />
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-slate-900">Session status</h2>
+          <div className="mt-4 rounded-2xl border border-[#007979]/15 bg-[#f4fbfb] p-4 text-sm text-slate-700">
+            {isAuthenticated ? (
+              <>
+                <div className="font-semibold text-slate-900">Signed in as {dashboard.title}</div>
+                <p className="mt-2">Your personalised dashboard is ready with role-specific learning and reference tools.</p>
+              </>
+            ) : (
+              <>
+                <div className="font-semibold text-slate-900">Guest mode active</div>
+                <p className="mt-2">You can still browse all medicines, search, compare, and learn without creating an account.</p>
+              </>
+            )}
+          </div>
+
+          <div className="mt-5 space-y-3">
+            <Link to="/search?q=amoxicillin" className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-700 hover:border-slate-300">
+              Search medicines <ChevronRight size={16} />
+            </Link>
+            <Link to="/compare?left=amoxicillin&right=metformin" className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-700 hover:border-slate-300">
+              Compare medicines <ChevronRight size={16} />
+            </Link>
+            <Link to="/about" className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-700 hover:border-slate-300">
+              Learn the product <ChevronRight size={16} />
             </Link>
           </div>
-        ))}
-      </section>
-
-      <section className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Guest access</p>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-900">Continue without creating an account</h2>
-          </div>
-          <Link to="/search?q=amoxicillin" className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:border-slate-300">
-            Explore medicines
-          </Link>
         </div>
       </section>
     </div>
