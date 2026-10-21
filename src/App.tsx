@@ -7,11 +7,14 @@ import {
   ChevronRight,
   CircleHelp,
   FlaskConical,
+  LogIn,
   Search,
   ShieldCheck,
+  Sparkles,
   Stethoscope,
   UserRound,
   Video,
+  X,
 } from 'lucide-react'
 import {
   BrowserRouter,
@@ -41,13 +44,15 @@ const formatList = (list: string[] | undefined, fallback = 'Information not avai
   list && list.length ? list.join(', ') : fallback
 
 function App() {
+  const [showAuthModal, setShowAuthModal] = useState(false)
+
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-slate-50 text-slate-900">
-        <Header />
+        <Header onOpenAuth={() => setShowAuthModal(true)} />
         <main className="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
           <Routes>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<HomePage onOpenAuth={() => setShowAuthModal(true)} />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/medicine/:id" element={<MedicineProfilePage />} />
             <Route path="/medicine/:id/teach" element={<TeachPage />} />
@@ -59,51 +64,138 @@ function App() {
           </Routes>
         </main>
         <Footer />
+        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       </div>
     </BrowserRouter>
   )
 }
 
-function Header() {
+function Header({ onOpenAuth }: { onOpenAuth: () => void }) {
+  const [showSearch, setShowSearch] = useState(false)
+  const [query, setQuery] = useState('')
+  const navigate = useNavigate()
+
+  const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const term = query.trim()
+    setShowSearch(false)
+    navigate(term ? `/search?q=${encodeURIComponent(term)}` : '/search')
+  }
+
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-xs font-bold text-white shadow-sm">P</div>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">PHARMACLOPEDIA</div>
-            <div className="text-sm font-medium text-slate-800">Medicine intelligence</div>
-          </div>
-        </Link>
-        <nav className="hidden items-center gap-5 md:flex">
-          {primaryLinks.map(({ to, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `text-sm font-medium transition ${isActive ? 'text-slate-900' : 'text-slate-600 hover:text-slate-900'}`
-              }
+    <header className="sticky top-0 z-40 border-b border-white/60 bg-white/75 backdrop-blur-xl">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="relative flex items-center justify-between gap-3 py-3">
+          <Link to="/" className="flex items-center gap-3 rounded-2xl px-2 py-1.5 transition hover:scale-[1.01]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#007979] to-[#1ca3a3] shadow-lg shadow-[#007979]/25">
+              <svg viewBox="0 0 64 64" className="h-7 w-7" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Pharmaclopedia logo">
+                <rect x="14" y="14" width="36" height="36" rx="10" fill="rgba(255,255,255,0.14)"/>
+                <path d="M22 20h6v24h-6V20Zm6 0h8v10h-8V20Zm0 12h8v12h-8V32Zm-6 0h6v12h-6V32Zm14-12h6v24h-6V20Zm6 0h6v24h-6V20Z" fill="#E8FFFE"/>
+                <circle cx="44" cy="20" r="4" fill="#B7FFF5"/>
+              </svg>
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#007979]">PHARMACLOPEDIA</div>
+              <div className="text-sm font-medium text-slate-700">Medicine intelligence</div>
+            </div>
+          </Link>
+
+          <nav className="smart-nav hidden items-center gap-1 rounded-full border border-white/60 bg-white/60 p-1 shadow-[0_10px_30px_rgba(15,23,42,0.08)] md:flex">
+            {primaryLinks.map(({ to, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  `nav-pill text-sm font-medium transition ${isActive ? 'active' : ''}`
+                }
+              >
+                {label}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowSearch((current) => !current)}
+              className="inline-flex items-center gap-2 rounded-full border border-[#007979]/20 bg-white/70 px-3 py-2 text-sm font-semibold text-[#007979] shadow-[0_8px_24px_rgba(0,121,121,0.12)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(0,121,121,0.18)]"
             >
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="flex items-center gap-2">
-          <Link to="/search?q=amoxicillin" className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800">
-            <Search size={16} />
-            Search drugs
-          </Link>
-          <Link to="/account" className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300 sm:inline-flex">
-            <UserRound size={16} />
-            Account
-          </Link>
+              <Search size={16} />
+              <span className="hidden sm:inline">Search</span>
+            </button>
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              className="inline-flex items-center gap-2 rounded-full bg-[#007979] px-3.5 py-2 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(0,121,121,0.25)] transition hover:-translate-y-0.5 hover:bg-[#005d5d]"
+            >
+              <UserRound size={16} />
+              <span className="hidden sm:inline">Guest access</span>
+            </button>
+          </div>
         </div>
+
+        {showSearch && (
+          <div className="relative z-10 pb-3">
+            <form onSubmit={handleSearch} className="glass-panel flex items-center gap-2 rounded-2xl border border-white/70 bg-white/80 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+              <Search className="ml-2 text-[#007979]" size={18} />
+              <input
+                autoFocus
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search medicine, class, or category"
+                className="w-full border-0 bg-transparent py-2 pr-2 text-sm text-slate-800 outline-none placeholder:text-slate-400"
+              />
+              <button type="submit" className="rounded-xl bg-[#007979] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#005d5d]">
+                Go
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </header>
   )
 }
 
-function HomePage() {
+function AuthModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-[28px] border border-white/60 bg-white/85 p-6 shadow-[0_26px_80px_rgba(15,23,42,0.22)] backdrop-blur-xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#007979]">Welcome</p>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">Continue as guest or sign in</h2>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-full border border-slate-200 bg-slate-50 p-2 text-slate-600 transition hover:border-slate-300 hover:text-slate-900">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="mt-6 space-y-3">
+          <button type="button" onClick={onClose} className="primary-button flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white">
+            <Sparkles size={16} />
+            Continue as guest
+          </button>
+          <button type="button" onClick={onClose} className="secondary-button flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800">
+            <LogIn size={16} />
+            Sign in
+          </button>
+          <button type="button" onClick={onClose} className="secondary-button flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800">
+            <UserRound size={16} />
+            Create account
+          </button>
+        </div>
+
+        <p className="mt-5 text-center text-xs text-slate-500">
+          Guest access remains available by default, and accounts are optional for learning and revision.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function HomePage({ onOpenAuth }: { onOpenAuth: () => void }) {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
   const suggested = ['amoxicillin', 'panadol', 'metformin', 'ventolin', 'loratadine']
@@ -120,7 +212,7 @@ function HomePage() {
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:p-10">
         <div className="grid gap-8 lg:grid-cols-[1.35fr_0.65fr]">
           <div>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-teal-700">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#007979]/20 bg-[#edfdfd] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#007979]">
               <ShieldCheck size={14} />
               Demonstration-ready learning
             </div>
@@ -138,22 +230,22 @@ function HomePage() {
                   aria-label="Search medicines"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-base text-slate-900 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 py-3 pl-11 pr-4 text-base text-slate-900 outline-none transition focus:border-[#007979]/40 focus:ring-4 focus:ring-[#007979]/10"
                   placeholder="Search a medicine, class, or category"
                 />
               </div>
-              <button type="submit" className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-slate-800">
+              <button type="submit" className="primary-button inline-flex items-center justify-center rounded-2xl px-5 py-3 font-semibold text-white">
                 Search
               </button>
             </form>
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-5 flex flex-wrap gap-2">
               {suggested.map((term) => (
                 <button
                   key={term}
                   type="button"
                   onClick={() => navigate(`/search?q=${encodeURIComponent(term)}`)}
-                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+                  className="rounded-full border border-[#007979]/15 bg-[#f5fdfd] px-3 py-1.5 text-sm text-slate-700 transition hover:-translate-y-0.5 hover:border-[#007979]/30 hover:shadow-[0_10px_20px_rgba(0,121,121,0.08)]"
                 >
                   {term}
                 </button>
@@ -161,9 +253,9 @@ function HomePage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+          <div className="glass-panel rounded-2xl border border-white/70 bg-white/60 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
             <div className="flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
-              <BrainCircuit size={18} />
+              <BrainCircuit size={18} className="text-[#007979]" />
               How it works
             </div>
             <ol className="mt-5 space-y-4">
@@ -174,14 +266,19 @@ function HomePage() {
                 'Compare medicines and test your knowledge.',
               ].map((step, index) => (
                 <li key={step} className="flex gap-3 text-sm text-slate-700">
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">{index + 1}</div>
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#007979] text-xs font-bold text-white shadow-[0_10px_18px_rgba(0,121,121,0.2)]">{index + 1}</div>
                   <span>{step}</span>
                 </li>
               ))}
             </ol>
-            <Link to="/medicine/amoxicillin/teach" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
-              Try the demo <ArrowRight size={16} />
-            </Link>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link to="/medicine/amoxicillin/teach" className="inline-flex items-center gap-2 text-sm font-semibold text-[#007979] transition hover:translate-x-0.5">
+                Try the demo <ArrowRight size={16} />
+              </Link>
+              <button type="button" onClick={onOpenAuth} className="secondary-button rounded-full border border-[#007979]/20 bg-white/70 px-3 py-2 text-sm font-semibold text-slate-800">
+                Login / Sign up
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -420,7 +517,7 @@ function MedicineProfilePage() {
               <ul className="mt-4 space-y-3 text-slate-700">
                 {section.body.map((item, index) => (
                   <li key={`${section.id}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm leading-6">
-                    {typeof item === 'string' ? item : item}
+                    {item}
                   </li>
                 ))}
               </ul>
