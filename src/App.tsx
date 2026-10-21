@@ -43,6 +43,32 @@ const primaryLinks = [
 const formatList = (list: string[] | undefined, fallback = 'Information not available in this profile.') =>
   list && list.length ? list.join(', ') : fallback
 
+const getSearchSuggestions = (term: string) => {
+  const rawQuery = term.trim().toLowerCase()
+  if (!rawQuery) return []
+
+  const matchSet = new Set<string>()
+
+  medicines.forEach((medicine) => {
+    const haystacks = [
+      medicine.genericName,
+      medicine.drugClass,
+      ...medicine.synonyms,
+      ...medicine.therapeuticCategories,
+      ...medicine.brands,
+    ]
+
+    haystacks.forEach((item) => {
+      const value = item.toLowerCase()
+      if (value.includes(rawQuery) && !matchSet.has(item)) {
+        matchSet.add(item)
+      }
+    })
+  })
+
+  return Array.from(matchSet).slice(0, 6)
+}
+
 type RoleKey = 'student' | 'pharmacist' | 'patient'
 
 type RoleDashboard = {
@@ -137,6 +163,7 @@ function Header({ onOpenAuth }: { onOpenAuth: () => void }) {
   const [showSearch, setShowSearch] = useState(false)
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
+  const suggestions = useMemo(() => getSearchSuggestions(query), [query])
 
   const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -199,7 +226,7 @@ function Header({ onOpenAuth }: { onOpenAuth: () => void }) {
 
         {showSearch && (
           <div className="relative z-10 pb-3">
-            <form onSubmit={handleSearch} className="glass-panel flex items-center gap-2 rounded-2xl border border-white/70 bg-white/80 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+            <form onSubmit={handleSearch} className="glass-panel relative flex items-center gap-2 rounded-2xl border border-white/70 bg-white/80 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
               <Search className="ml-2 text-[#007979]" size={18} />
               <input
                 autoFocus
@@ -211,6 +238,26 @@ function Header({ onOpenAuth }: { onOpenAuth: () => void }) {
               <button type="submit" className="rounded-xl bg-[#007979] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#005d5d]">
                 Go
               </button>
+
+              {query.trim() && suggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+                  {suggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => {
+                        setQuery(suggestion)
+                        setShowSearch(false)
+                        navigate(`/search?q=${encodeURIComponent(suggestion)}`)
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                    >
+                      <Search size={14} className="text-slate-400" />
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
             </form>
           </div>
         )}
@@ -354,6 +401,7 @@ function HomePage({ onOpenAuth }: { onOpenAuth: () => void }) {
   const navigate = useNavigate()
   const suggested = ['amoxicillin', 'panadol', 'metformin', 'ventolin', 'loratadine']
   const categories = [...new Set(medicines.flatMap((medicine) => medicine.therapeuticCategories))]
+  const suggestions = useMemo(() => getSearchSuggestions(query), [query])
 
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -363,34 +411,55 @@ function HomePage({ onOpenAuth }: { onOpenAuth: () => void }) {
 
   return (
     <div className="space-y-10">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:p-10">
-        <div className="grid gap-8 lg:grid-cols-[1.35fr_0.65fr]">
+      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:p-10">
+        <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr] lg:gap-8">
           <div>
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#007979]/20 bg-[#edfdfd] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#007979]">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#007979]/20 bg-[#edfdfd] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#007979] sm:text-xs">
               <ShieldCheck size={14} />
               Demonstration-ready learning
             </div>
-            <h1 className="max-w-xl text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+            <h1 className="max-w-xl text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
               Understand the medicines behind the science.
             </h1>
-            <p className="mt-4 max-w-xl text-lg text-slate-600">
+            <p className="mt-4 max-w-xl text-base text-slate-600 sm:text-lg">
               Explore structured medicine information, learn pharmacology interactively, and test your understanding—all in one place.
             </p>
 
-            <form onSubmit={onSubmit} className="mt-6 flex w-full max-w-xl flex-col gap-3 sm:flex-row">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input
-                  aria-label="Search medicines"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 py-3 pl-11 pr-4 text-base text-slate-900 outline-none transition focus:border-[#007979]/40 focus:ring-4 focus:ring-[#007979]/10"
-                  placeholder="Search a medicine, class, or category"
-                />
+            <form onSubmit={onSubmit} className="relative mt-6 max-w-xl">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input
+                    aria-label="Search medicines"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 py-3 pl-11 pr-4 text-base text-slate-900 outline-none transition focus:border-[#007979]/40 focus:ring-4 focus:ring-[#007979]/10"
+                    placeholder="Search a medicine, class, or category"
+                  />
+                </div>
+                <button type="submit" className="primary-button inline-flex items-center justify-center rounded-2xl px-5 py-3 font-semibold text-white sm:min-w-[110px]">
+                  Search
+                </button>
               </div>
-              <button type="submit" className="primary-button inline-flex items-center justify-center rounded-2xl px-5 py-3 font-semibold text-white">
-                Search
-              </button>
+
+              {query.trim() && suggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+                  {suggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => {
+                        setQuery(suggestion)
+                        navigate(`/search?q=${encodeURIComponent(suggestion)}`)
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                    >
+                      <Search size={14} className="text-slate-400" />
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
             </form>
 
             <div className="mt-5 flex flex-wrap gap-2">
@@ -407,8 +476,8 @@ function HomePage({ onOpenAuth }: { onOpenAuth: () => void }) {
             </div>
           </div>
 
-          <div className="glass-panel rounded-2xl border border-white/70 bg-white/60 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-            <div className="flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
+          <div className="glass-panel rounded-2xl border border-white/70 bg-white/60 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.08)] sm:p-5">
+            <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 sm:text-sm">
               <BrainCircuit size={18} className="text-[#007979]" />
               How it works
             </div>
@@ -425,8 +494,8 @@ function HomePage({ onOpenAuth }: { onOpenAuth: () => void }) {
                 </li>
               ))}
             </ol>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link to="/medicine/amoxicillin/teach" className="inline-flex items-center gap-2 text-sm font-semibold text-[#007979] transition hover:translate-x-0.5">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Link to="/medicine/amoxicillin/teach" className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-[#007979] transition hover:translate-x-0.5">
                 Try the demo <ArrowRight size={16} />
               </Link>
               <button type="button" onClick={onOpenAuth} className="secondary-button rounded-full border border-[#007979]/20 bg-white/70 px-3 py-2 text-sm font-semibold text-slate-800">
@@ -438,9 +507,9 @@ function HomePage({ onOpenAuth }: { onOpenAuth: () => void }) {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-slate-900">Browse by category</h2>
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Browse by category</h2>
             <span className="text-sm text-slate-500">Curated learning set</span>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -457,10 +526,10 @@ function HomePage({ onOpenAuth }: { onOpenAuth: () => void }) {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="mb-4 flex items-center gap-2 text-slate-900">
             <BookOpenText size={18} />
-            <h2 className="text-2xl font-semibold">Featured learning paths</h2>
+            <h2 className="text-xl font-semibold sm:text-2xl">Featured learning paths</h2>
           </div>
           <ul className="space-y-3">
             {[
@@ -494,7 +563,10 @@ function SearchPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Search</p>
             <h1 className="mt-2 text-3xl font-bold text-slate-900">Medicine search</h1>
           </div>
-          <Link to="/" className="text-sm font-medium text-slate-600 hover:text-slate-900">Back home</Link>
+          <Link to="/" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-900">
+            <ArrowLeft size={16} />
+            Back home
+          </Link>
         </div>
       </div>
 
