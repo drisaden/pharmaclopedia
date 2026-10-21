@@ -26,7 +26,7 @@ import {
   useParams,
   useSearchParams,
 } from 'react-router-dom'
-import { calculateQuizResult, getQuizForMedicine, quizQuestions } from './lib/quizzes'
+import { calculateQuizResult, getQuizForMedicine } from './lib/quizzes'
 import { medicineIndex, medicines, searchMedicines } from './lib/medicines'
 import { buildLessonContent, findMedicineById, getSuggestedQuestions, lessonModes } from './lib/tutor'
 import { getVideosForMedicine } from './data/videos'
